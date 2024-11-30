@@ -1,15 +1,23 @@
 import asyncio
+import os
+import re
+import time
+import webbrowser
+
+import requests
+from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
+from pynput.keyboard import Controller, Key
+
 
 async def download_all_mcbuild(start: int = 0):
-
   download_link = "https://mcbuild.org/download"
 
   headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0",
   }
 
-  max_index = 40000
+  max_index = 19000
   num_browsers = 50
 
   async def download_offset(offset: int):
@@ -39,5 +47,48 @@ async def download_all_mcbuild(start: int = 0):
   await asyncio.gather(*tasks)
 
 
+def download_all_minecraft_schematic(start: int = 0):
+  schematics_link = "https://www.minecraft-schematics.com/schematic"
+  keyboard = Controller()
+
+  time.sleep(2)
+
+  for i in range(start, 30000):
+    webbrowser.open(f"{schematics_link}/{i}/download/action/?type=schematic")
+    time.sleep(0.25)
+    keyboard.press(Key.ctrl)
+    keyboard.press('w')
+    keyboard.release('w')
+    keyboard.press('w')
+    keyboard.release('w')
+    keyboard.release(Key.ctrl)
+    time.sleep(0.25)
+
+
+def rename_minecraft_schematic_files():
+  path = "data/minecraft-schematic/"
+  files = os.listdir(path)
+  for file in files:
+    number = file.split(".")[0]
+    extension = file.split(".")[1]
+    if number.isnumeric():
+      response = requests.get(f"https://www.minecraft-schematics.com/schematic/{number}/")
+      if response.status_code != 200:
+        continue
+      html_content = response.text
+      soup = BeautifulSoup(html_content, "html.parser")
+      category_attribute = soup.find("i", {"class": "fa fa-th-large"})
+      if not category_attribute:
+        continue
+      category = category_attribute.find_next("td").get_text(strip=True)
+      name = soup.find("h1").get_text(strip=True)
+      file_format_attribute = soup.find("i", {"class": "fa fa-file"})
+      if not file_format_attribute or file_format_attribute.find_next("td").get_text(strip=True) != ".schematic":
+        continue
+      os.makedirs(f"data/minecraft-schematic/{category}/", exist_ok=True)
+      invalid_chars = r'[<>:"/\\|?*\0]'
+      sanitised = re.sub(invalid_chars, "_", name).strip()
+      os.replace(f"data/minecraft-schematic/{number}.{extension}", f"data/minecraft-schematic/{category}/{sanitised}.{extension}")
+
 if __name__ == "__main__":
-  asyncio.run(download_all_mcbuild())
+  rename_minecraft_schematic_files()
