@@ -1,36 +1,43 @@
 import asyncio
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 
+async def download_all_mcbuild(start: int = 0):
 
-class DataScraper:
-    async def download_file_with_wait(self, url: str) -> bool:
-        """
-        Downloads a file from a given URL and waits for completion.
+  download_link = "https://mcbuild.org/download"
 
-        :param url: URL to download
-        :return: Whether the file was downloaded
-        """
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0",
-        }
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context(accept_downloads=True, extra_http_headers=headers)
-            page = await context.new_page()
-            await page.goto(url, referer='/'.join(url.split('/')[0:-1]) + '/')
+  headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0",
+  }
 
-            try:
-                download = await page.wait_for_event("download")
-            except asyncio.TimeoutError:
-                print("Error: Timed out")
-                return False
-            await download.save_as(f"data/{download.suggested_filename}")
+  max_index = 40000
+  num_browsers = 50
 
-            print(f"File downloaded: {download.suggested_filename}")
-            await browser.close()
-        return True
+  async def download_offset(offset: int):
+    async with async_playwright() as p:
+      browser = await p.chromium.launch(headless=True)
+      context = await browser.new_context(accept_downloads=True, extra_http_headers=headers)
+      page = await context.new_page()
+
+      for i in range(offset + start, max_index, num_browsers):
+        try:
+          await page.goto(f"{download_link}/schematic={i}", referer=download_link)
+          html_content = await page.content()
+          if "File not available or link expired." in html_content:
+            continue
+          download = await page.wait_for_event("download", timeout=12000)
+          filename = download.suggested_filename.replace(" - (mcbuild_org)", "")
+          if filename.endswith(".schematic"):
+            await download.save_as(f"data/mcbuild/{filename}")
+            print(f"File {i} downloaded: {filename}")
+        except PlaywrightTimeoutError:
+          pass
+
+      await context.close()
+      await browser.close()
+
+  tasks = [download_offset(i) for i in range(num_browsers)]
+  await asyncio.gather(*tasks)
 
 
 if __name__ == "__main__":
-    scraper = DataScraper()
-    asyncio.run(scraper.download_file_with_wait("https://mcbuild.org/download/schematic=18505"))
+  asyncio.run(download_all_mcbuild())
