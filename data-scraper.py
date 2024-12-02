@@ -69,9 +69,10 @@ def rename_minecraft_schematic_files():
   path = "data/minecraft-schematic/"
   files = os.listdir(path)
   for file in files:
-    number = file.split(".")[0]
-    extension = file.split(".")[1]
-    if number.isnumeric():
+    split = file.split(".")
+    number = split[0]
+    if number.isnumeric() and len(split) > 1:
+      extension = split[1]
       response = requests.get(f"https://www.minecraft-schematics.com/schematic/{number}/")
       if response.status_code != 200:
         continue
@@ -82,12 +83,10 @@ def rename_minecraft_schematic_files():
         continue
       category = category_attribute.find_next("td").get_text(strip=True)
       name = soup.find("h1").get_text(strip=True)
-      file_format_attribute = soup.find("i", {"class": "fa fa-file"})
-      if not file_format_attribute or file_format_attribute.find_next("td").get_text(strip=True) != ".schematic":
-        continue
       os.makedirs(f"data/minecraft-schematic/{category}/", exist_ok=True)
       invalid_chars = r'[<>:"/\\|?*\0]'
-      sanitised = re.sub(invalid_chars, "_", name).strip()
+      sanitised = re.sub(invalid_chars, "_", name).strip().replace("\t"," ")
+      print(f"Replacing {number} with {sanitised}")
       os.replace(f"data/minecraft-schematic/{number}.{extension}", f"data/minecraft-schematic/{category}/{sanitised}.{extension}")
 
 if __name__ == "__main__":
