@@ -11,6 +11,12 @@ from pynput.keyboard import Controller, Key
 
 
 async def download_all_mcbuild(start: int = 0):
+  """
+  Scrapes www.mcbuild.org for all of its schematic files.
+
+  :param start: Index to start scraping from
+  :return:
+  """
   download_link = "https://mcbuild.org/download"
 
   headers = {
@@ -35,7 +41,7 @@ async def download_all_mcbuild(start: int = 0):
           download = await page.wait_for_event("download", timeout=12000)
           filename = download.suggested_filename.replace(" - (mcbuild_org)", "")
           if filename.endswith(".schematic"):
-            await download.save_as(f"data/mcbuild/{filename}")
+            await download.save_as(f"schematics/mcbuild/{filename}")
             print(f"File {i} downloaded: {filename}")
         except PlaywrightTimeoutError:
           pass
@@ -48,6 +54,12 @@ async def download_all_mcbuild(start: int = 0):
 
 
 def download_all_minecraft_schematic(start: int = 0):
+  """
+  Scrapes www.minecraft-schematics.com for all of its schematic files. Requires login on default browser
+
+  :param start: Index to start scraping from
+  :return:
+  """
   schematics_link = "https://www.minecraft-schematics.com/schematic"
   keyboard = Controller()
 
@@ -66,7 +78,12 @@ def download_all_minecraft_schematic(start: int = 0):
 
 
 def rename_minecraft_schematic_files():
-  path = "data/minecraft-schematic/"
+  """
+  Renames and categorises schematics scrapes from www.minecraft-schematics.com by scraping the website.
+
+  :return:
+  """
+  path = "schematics/minecraft-schematic/"
   files = os.listdir(path)
   for file in files:
     split = file.split(".")
@@ -83,11 +100,13 @@ def rename_minecraft_schematic_files():
         continue
       category = category_attribute.find_next("td").get_text(strip=True)
       name = soup.find("h1").get_text(strip=True)
-      os.makedirs(f"data/minecraft-schematic/{category}/", exist_ok=True)
+      os.makedirs(f"schematics/minecraft-schematic/{category}/", exist_ok=True)
       invalid_chars = r'[<>:"/\\|?*\0]'
       sanitised = re.sub(invalid_chars, "_", name).strip().replace("\t"," ")
       print(f"Replacing {number} with {sanitised}")
-      os.replace(f"data/minecraft-schematic/{number}.{extension}", f"data/minecraft-schematic/{category}/{sanitised}.{extension}")
+      os.replace(f"schematics/minecraft-schematic/{number}.{extension}",
+                 f"schematics/minecraft-schematic/{category}/{sanitised}.{extension}")
+
 
 if __name__ == "__main__":
-  rename_minecraft_schematic_files()
+  pass
